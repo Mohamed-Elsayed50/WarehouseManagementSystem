@@ -1,0 +1,175 @@
+﻿@model List<Resource>
+
+<div class="card">
+    <div class="card-header card-header-flex">
+        <div>
+            @if (ViewBag.status == 0)
+            {
+                <h5>Активные Ресурсы</h5>
+            }
+            else
+            {
+                <h5>Архивированные Ресурсы</h5>
+            }
+        </div>
+        <div>
+            <a id="loadAddModal" class="btn rounded-pill btn-outline-primary" href="#">Добавить</a>
+            @if (ViewBag.status == 0)
+            {
+                <a class="btn rounded-pill btn-outline-dark" href="/Resource/Index/1">архивy</a>
+            }
+            else
+            {
+                <a class="btn rounded-pill btn-outline-dark" href="/Resource/Index/0">К рабочим</a>
+            }
+        </div>
+    </div>
+    <div class="table-responsive text-nowrap">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Наименование</th>
+                    <th>акция</th>
+                </tr>
+            </thead>
+            <tbody class="table-border-bottom-0">
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                    <i class="bx bx-dots-vertical-rounded"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="#" class="dropdown-item open-resource-form" data-id="@item.Id">
+                                        <i class="bx bx-pencil me-1"></i> Редактировать
+                                    </a>
+                                    @if (ViewBag.status == 0)
+                                    {
+                                        <a href="#" class="dropdown-item archive-resource" data-id="@item.Id" data-status="@ViewBag.status">
+                                            <i class="bx bx-archive me-1"></i> К архиву
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a href="#" class="dropdown-item archive-resource" data-id="@item.Id" data-status="@ViewBag.status">
+                                            <i class="bx bx-archive me-1"></i> К рабочим
+                                        </a>
+                                    }
+
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="basicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить | Редактировать Ресурс</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="addresourceContainer">
+                <!--  partial view  -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSRF Token -->
+<form id="csrf-form" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        $(function () {
+            const modalEl = document.getElementById('basicModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const token = $('#csrf-form input[name="__RequestVerificationToken"]').val();
+
+            function showLoader() {
+                $("#addresourceContainer").html('<div class="text-center p-3"><div class="spinner-border text-primary"></div></div>');
+            }
+
+
+            $("#loadAddModal").click(function (e) {
+                e.preventDefault();
+                showLoader();
+
+                $.get("/Resource/Add", function (data) {
+                    $("#addresourceContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить форму.");
+                });
+            });
+
+
+            $(document).on("click", ".open-resource-form", function (e) {
+                e.preventDefault();
+                const resourceId = $(this).data("id");
+                showLoader();
+
+                $.get("/Resource/Update/" + resourceId, function (data) {
+                    $("#addresourceContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить данные Ресурсa.");
+                });
+            });
+
+
+            $(document).on("click", ".archive-resource", function (e) {
+                e.preventDefault();
+                const resourceId = $(this).data("id");
+                const status = $(this).data("status");
+
+                $.ajax({
+                    url: "/Resource/Archive/" + resourceId + "/" + status,
+                    type: "POST",
+                    headers: { 'RequestVerificationToken': token },
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        console.error("Ошибка архивации:", xhr);
+                    }
+                });
+            });
+
+                  $(document).on("click", "#addresourceContainer #submit-resource-btn", function (e) {
+            e.preventDefault();
+            const form = $(this).closest("form");
+            const url = form.attr("action");
+            const data = form.serialize();
+                $.ajax({
+                    url: url,
+                    method: "POST",
+                    data: data,
+                    success: function (response) {
+                        if (response.success) {
+                            $("#basicModal").modal("hide");
+                            location.reload();
+                        } else {
+                            const errorHtml = response.errors.map(e => `<div class="alert alert-danger">${e}</div>`).join('');
+                            $("#addresourceContainer").find(".alert").remove();
+                            $("#addresourceContainer").prepend(errorHtml);
+                        }
+                    },
+                    error: function () {
+                        alert("Произошла ошибка при сохранении.");
+                    }
+                });
+            });
+        });
+    </script>
+}

@@ -1,0 +1,23 @@
+﻿@model List<balance>
+
+<div class="table-responsive text-nowrap mt-3">
+    <table class="table table-bordered">
+        <thead class="table-secondary">
+            <tr>
+                <th>Ресурс</th>
+                <th>Единица измерения</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.resource.Name</td>
+                    <td>@item.UnitOfMeasurement.Name</td>
+                    <td>@item.Quantity</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

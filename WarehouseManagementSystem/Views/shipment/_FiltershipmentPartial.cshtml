@@ -1,0 +1,89 @@
+﻿@model List<shipment>
+
+<div class="table-responsive text-nowrap">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Дата</th>
+                <th>Статус</th>
+                <th>Клиент</th>
+                <th>Ресурс</th>
+                <th>Единица</th>
+                <th>Количество</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody class="table-border-bottom-0">
+            @foreach (var shipment in Model)
+            {
+                string shipmentId = shipment.Id.ToString();
+                bool first = true;
+                foreach (var item in shipment.Items)
+                {
+                    <tr class="shipment-row">
+                        @if (first)
+                        {
+                            <td rowspan="@shipment.Items.Count">@shipment.Number</td>
+                            <td rowspan="@shipment.Items.Count">@shipment.Date.ToShortDateString()</td>
+                            <td rowspan="@shipment.Items.Count" style="text-align: center;">
+                                @if (shipment.IsSigned)
+                                {
+                                    <span class="badge rounded-pill bg-primary">подписан</span>
+                                }else{
+                                    <span class="badge rounded-pill bg-secondary">Не подписан</span>
+                                }
+                            </td>
+                            <td rowspan="@shipment.Items.Count">@shipment.client?.Name</td>
+                        }
+                        else
+                        {
+                            <td style="display:none"></td>
+                            <td style="display:none"></td>
+                            <td style="display:none"></td>
+                        }
+
+                        <td>@item.Resource?.Name</td>
+                        <td>@item.Unit?.Name</td>
+                        <td>@item.Quantity</td>
+
+                        @if (first)
+                        {
+                            <td rowspan="@shipment.Items.Count">
+                                <div class="dropdown">
+                                    <button class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                        <i class="bx bx-dots-vertical-rounded"></i>
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a href="#" class="dropdown-item open-shipment-form" data-id="@shipment.Id">
+                                            <i class="bx bx-pencil me-1"></i> Редактировать
+                                        </a>
+                                        @if(shipment.IsSigned){
+                                            <a href="#" class="dropdown-item asign-shipment" data-id="@shipment.Id">
+                                                <i class="bx bx-trash me-1"></i> Отменить подпись
+                                            </a>
+                                        }else{
+                                            <a href="#" class="dropdown-item asign-shipment" data-id="@shipment.Id">
+                                                <i class="bx bx-trash me-1"></i> Подписать
+                                            </a>
+                                        }
+                                    
+                                        <a href="#" class="dropdown-item Delete-shipment" data-id="@shipment.Id">
+                                            <i class="bx bx-trash me-1"></i> Удалить
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        }
+                        else
+                        {
+                            <td style="display:none"></td>
+                        }
+
+                        @if (first) { first = false; }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,254 @@
+﻿using Azure;
+using Microsoft.EntityFrameworkCore;
+using WarehouseManagementSystem.Enums;
+using WarehouseManagementSystem.Models;
+using WarehouseManagementSystem.Repository.Base;
+using WarehouseManagementSystem.Services.BalanceService;
+using WarehouseManagementSystem.ViewModels;
+
+namespace WarehouseManagementSystem.Services.ReceiptService
+{
+    public class ReceiptService:IReceiptService
+    {
+
+
+        private readonly IBaseRepository<Receipt> _receiptRepo;
+        private readonly IBaseRepository<ReceiptItem> _itemRepo;
+        private readonly IBalanceService _balanceService;
+
+        public ReceiptService(IBaseRepository<Receipt> receiptRepo, IBaseRepository<ReceiptItem> itemRepo, IBalanceService balanceService)
+        {
+            _receiptRepo = receiptRepo;
+            _itemRepo = itemRepo;
+            _balanceService = balanceService;
+        }
+
+        public async Task<List<Receipt>> GetAllReceiptsAsync()
+        {
+            try
+            {
+                return await _receiptRepo.GetListAsync(x=>!x.IsDeleted,includes: x=>x.Include(x=>x.Items).ThenInclude(x=>x.Resource).Include(x=>x.Items).ThenInclude(x=>x.Unit));
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Ошибка при получении списка приходов.", ex);
+            }
+        }
+        public async Task<List<Receipt>> GetFilteredReceiptsAsync(DateTime? from, DateTime? to, int? number, string? resource, string? unit)
+        {
+            var receipts = await _receiptRepo.GetListAsync(
+                x => !x.IsDeleted,
+                includes: x => x
+                    .Include(x => x.Items)
+                        .ThenInclude(i => i.Resource)
+                    .Include(x => x.Items)
+                        .ThenInclude(i => i.Unit)
+            );
+
+
+            if (from.HasValue)
+                receipts = receipts.Where(x => x.Date >= from.Value).ToList();
+
+            if (to.HasValue)
+                receipts = receipts.Where(x => x.Date <= to.Value).ToList();
+
+            if (number.HasValue && number >= 0)
+                receipts = receipts.Where(x => x.Number == number).ToList();
+
+
+            foreach (var receipt in receipts)
+            {
+                receipt.Items = receipt.Items
+                    .Where(i =>
+                        (string.IsNullOrEmpty(resource) || i.Resource?.Name == resource) &&
+                        (string.IsNullOrEmpty(unit) || i.Unit?.Name == unit)
+                    ).ToList();
+            }
+
+            receipts = receipts.Where(r => r.Items.Any()).ToList();
+
+            return receipts;
+        }
+
+
+        public async Task<Receipt?> GetByIdAsync(Guid id)
+        {
+            try
+            {
+                return await _receiptRepo.GetByConditionAsync<Receipt>(x => x.Id == id, includes: x => x.Include(r => r.Items).ThenInclude(i => i.Resource)
+                                               .Include(r => r.Items).ThenInclude(i => i.Unit));
+                 
+                                    
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException($"Ошибка при получении прихода по ID: {id}", ex);
+            }
+        }
+
+        public async Task<ResponseVM<ReceiptVM>> AddReceiptAsync(ReceiptVM model)
+        {
+            try
+            {
+                var NumberIsExist = await _receiptRepo.GetByConditionAsync<Receipt>(x=>x.Number== model.Number);
+                if (NumberIsExist != null)
+                {
+                    return new ResponseVM<ReceiptVM>
+                    {
+                        Data = model,
+                        Status = ResponseStatus.Error,
+                        Message = "В системе уже зарегистрирована накладная с таким номером"
+
+                    };
+                }
+                var receipt = new Receipt
+                {
+                    Id = Guid.NewGuid(),
+                    Number = model.Number,
+                    Date = model.Date,
+                    Items = model.Items.Select(i => new ReceiptItem
+                    {
+                        Id = Guid.NewGuid(),
+                        ResourceId = i.ResourceId,
+                        UnitId = i.UnitId,
+                        Quantity = i.Quantity
+                    }).ToList()
+                };
+                await _receiptRepo.AddAsync(receipt);
+                await _receiptRepo.SaveChangesAsync();
+
+ 
+                return new ResponseVM<ReceiptVM>
+                {
+                    Data = model,
+                    Status = ResponseStatus.Success,
+                    Message = "Поступление успешно добавлено."
+
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Ошибка при добавлении прихода.", ex);
+            }
+        }
+
+        public async Task<ResponseVM<ReceiptVM>> UpdateReceiptAsync(ReceiptVM model)
+        {
+            using var transaction = await _receiptRepo.BeginTransactionAsync();
+            try
+            {
+
+                var existing = await _receiptRepo.GetByConditionAsync<Receipt>(
+                    x => x.Id == model.Id,
+                    includes: x => x.Include(r => r.Items)
+                );
+
+                if (existing == null)
+                    throw new Exception("Приход не найден.");
+
+
+                existing.Number = model.Number;
+                existing.Date = model.Date;
+
+                await _itemRepo.DeleteRangeAsync(existing.Items);
+      
+
+                var newItems = model.Items.Select(i => new ReceiptItem
+                {
+                    Id = Guid.NewGuid(),
+                    ReceiptId = existing.Id,
+                    ResourceId = i.ResourceId,
+                    UnitId = i.UnitId,
+                    Quantity = i.Quantity
+                }).ToList();
+
+                await _itemRepo.AddRangeAsync(newItems);
+                await _receiptRepo.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                return new ResponseVM<ReceiptVM>
+                {
+                    Data = model,
+                    Status = ResponseStatus.Success,
+                    Message = "Поступление успешно добавлено."
+
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+
+        public async Task DeleteReceiptAsync(Guid id)
+        {
+            try
+            {
+                var receipt = await _receiptRepo.GetFirstByConditionAsync(x => x.Id == id);
+                if (receipt == null) 
+                    throw new Exception("Приход не найден.");
+
+                receipt.IsDeleted = true;
+                await _receiptRepo.UpdateAsync(receipt);
+                await _receiptRepo.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Ошибка при архивировании прихода.", ex);
+            }
+        }
+
+        private async Task DeleteFromBalaceItem(List<ReceiptItem> receiptItems)
+        {
+            foreach (var receiptItem in receiptItems)
+            {
+                await _balanceService.DeleteFromBalance(receiptItem.ResourceId, receiptItem.UnitId,receiptItem.Quantity);
+            }
+        }
+
+        private async Task AddFromBalaceItem(List<ReceiptItem> receiptItems)
+        {
+            foreach (var receiptItem in receiptItems)
+            {
+                await _balanceService.AddToBalance(receiptItem.ResourceId, receiptItem.UnitId, receiptItem.Quantity);
+            }
+        }
+
+        public async Task<(List<UnitsOfMeasurement>, List<Resource>)> GetItemsWithCount()
+        {
+            try
+            {
+                var receiptItems = await _itemRepo.GetListAsync(includes: x => x
+                    .Include(x => x.Unit)
+                    .Include(x => x.Resource));
+
+                if (receiptItems == null || receiptItems.Count == 0)
+                    throw new Exception("Не найдено ни одной позиции.");
+
+                var uniqueUnits = receiptItems
+                    .Select(x => x.Unit)
+                    .Where(u => u != null)
+                    .GroupBy(u => u.Id)
+                    .Select(g => g.First())
+                    .ToList();
+
+                var uniqueResources = receiptItems
+                    .Select(x => x.Resource)
+                    .Where(r => r != null)
+                    .GroupBy(r => r.Id)
+                    .Select(g => g.First())
+                    .ToList();
+
+                return (uniqueUnits, uniqueResources);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Ошибка при получении единиц и ресурсов.", ex);
+            }
+        }
+
+    }
+}

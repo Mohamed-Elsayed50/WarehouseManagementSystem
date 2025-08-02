@@ -1,0 +1,58 @@
+﻿@model List<balance>
+<div class="card">
+    <div class="card-header card-header-flex">
+        <div>
+            <h5>Баланс</h5>
+        </div>
+    </div>
+    <form id="balance-filter-form" class="row g-2 align-items-end mb-3 ms-1">
+        <div class="col-md-4">
+            <label>Ресурс</label>
+            <select name="resource" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var r in Model.DistinctBy(X=>X.ResourceId))
+                {
+                    <option value="@r.resource.Id">@r.resource.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label>Единица измерения</label>
+            <select name="unit" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var u in Model.DistinctBy(X => X.UnitOfMeasurementId))
+                {
+                    <option value="@u.UnitOfMeasurement.Id">@u.UnitOfMeasurement.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary">Применить</button>
+        </div>
+    </form>
+
+
+    <div id="receipts-container">
+        @await Html.PartialAsync("_FilterBalancesPartial", Model)
+    </div>
+</div>
+
+
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $("#balance-filter-form").submit(function (e) {
+                e.preventDefault();
+                let data = $(this).serialize();
+                $.get("/balance/Index", data, function (partial) {
+                    $("#receipts-container").html(partial);
+                }).fail(function () {
+                    alert("Не удалось получить данные.");
+                });
+            });
+        });
+    </script>
+}

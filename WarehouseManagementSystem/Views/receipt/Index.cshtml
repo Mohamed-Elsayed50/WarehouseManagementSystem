@@ -1,0 +1,176 @@
+﻿@model List<Receipt>
+
+<style>
+    .receipt-row.highlight {
+        background-color: #f3f4f6 !important;
+        transition: background-color 0.2s ease-in-out;
+    }
+</style>
+
+<div class="card">
+    <div class="card-header card-header-flex">
+        <div>
+            <h5>Поступления</h5>
+        </div>
+        <div>
+            <a id="loadAddModal" class="btn rounded-pill btn-outline-primary" href="#">Добавить</a>
+        </div>
+    </div>
+    <form id="filter-form" class="row g-2 align-items-end p-3">
+        <div class="col-md-3">
+            <label class="form-label">Период</label>
+            <div class="d-flex">
+                <input type="date" name="from" class="form-control" />
+                <input type="date" name="to" class="form-control ms-2" />
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Номер поступления</label>
+            <select name="number" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var number in Model.Select(r => r.Number).Distinct())
+                {
+                    <option value="@number">@number</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Ресурс</label>
+            <select name="resource" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var res in Model.SelectMany(r => r.Items).Select(i => i.Resource?.Name).Where(n => n != null).Distinct())
+                {
+                    <option value="@res">@res</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Единица измерения</label>
+            <select name="unit" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var unit in Model.SelectMany(r => r.Items).Select(i => i.Unit?.Name).Where(n => n != null).Distinct())
+                {
+                    <option value="@unit">@unit</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn rounded-pill btn-outline-primary me-2">Применить</button>
+            <button type="button" class="btn rounded-pill btn-outline-secondary" onclick="resetFilters()">Сбросить</button>
+        </div>
+    </form>
+
+    <div id="receipts-container">
+        @await Html.PartialAsync("_FilterReceptsPartial", Model)
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="basicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить | Редактировать Поступления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="addClientContainer">
+                <!-- partial view -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSRF Token -->
+<form id="csrf-form" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        $(function () {
+            const modalEl = document.getElementById('basicModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const token = $('#csrf-form input[name="__RequestVerificationToken"]').val();
+
+            function showLoader() {
+                $("#addClientContainer").html('<div class="text-center p-3"><div class="spinner-border text-primary"></div></div>');
+            }
+
+            $(document).on("submit", "#filter-form", function (e) {
+                e.preventDefault();
+                const data = $(this).serialize();
+                $.get("/receipt/Index", data, function (partial) {
+                    $("#receipts-container").html(partial);
+                });
+            });
+
+            $("#loadAddModal").click(function (e) {
+                e.preventDefault();
+                showLoader();
+                $.get("/receipt/Add", function (data) {
+                    $("#addClientContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить форму.");
+                });
+            });
+
+            $(document).on("click", ".open-receipt-form", function (e) {
+                e.preventDefault();
+                const id = $(this).data("id");
+                showLoader();
+                $.get("/receipt/Update/" + id, function (data) {
+                    $("#addClientContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить данные клиента.");
+                });
+            });
+
+            $(document).on("click", ".Delete-receipt", function (e) {
+                e.preventDefault();
+                const id = $(this).data("id");
+                $.ajax({
+                    url: "/receipt/Delete/" + id,
+                    type: "POST",
+                    headers: { 'RequestVerificationToken': token },
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        console.error("Ошибка :", xhr);
+                    }
+                });
+            });
+
+            $(document).on("click", "#addClientContainer #submit-receipt-btn", function (e) {
+                e.preventDefault();
+                const form = $(this).closest("form");
+                const url = form.attr("action");
+                const data = form.serialize();
+                $.ajax({
+                    url: url,
+                    method: "POST",
+                    data: data,
+                    success: function (response) {
+                        if (response.success) {
+                            $("#basicModal").modal("hide");
+                            location.reload();
+                        } else {
+                            const errorHtml = response.errors.map(e => `<div class="alert alert-danger">${e}</div>`).join('');
+                            $("#addClientContainer").find(".alert").remove();
+                            $("#addClientContainer").prepend(errorHtml);
+                        }
+                    },
+                    error: function () {
+                        alert("Произошла ошибка при сохранении.");
+                    }
+                });
+            });
+        });
+            function resetFilters() {
+                $("#filter-form")[0].reset();
+                $("#filter-form").submit();
+            }
+    </script>
+}

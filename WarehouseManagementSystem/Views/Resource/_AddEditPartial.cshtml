@@ -1,0 +1,18 @@
+﻿@model Resource
+
+<form asp-action="@(Model.Id==Guid.Empty ? "SubmitAdd" : "SubmitUpdate")" method="post">
+    @Html.AntiForgeryToken()
+    @if (Model.Id.ToString() != null)
+    {
+        <input type="hidden" asp-for="Id" />
+    }    
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn rounded-pill btn-outline-secondary" data-bs-dismiss="modal">закрыть</button>
+        <button type="button" class="btn rounded-pill btn-outline-primary" id="submit-resource-btn">Сохранить</button>
+    </div>
+</form>

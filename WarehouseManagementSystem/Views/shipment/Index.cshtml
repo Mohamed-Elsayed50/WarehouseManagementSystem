@@ -1,0 +1,203 @@
+﻿@model List<shipment>
+
+<style>
+    .shipment-row.highlight {
+        background-color: #f3f4f6 !important;
+        transition: background-color 0.2s ease-in-out;
+    }
+</style>
+
+<div class="card">
+    <div class="card-header card-header-flex">
+        <div>
+            <h5>Отгрузки</h5>
+        </div>
+        <div>
+            <a id="loadAddModal" class="btn rounded-pill btn-outline-primary" href="#">Добавить</a>
+        </div>
+    </div>
+    <form id="filter-form" class="row g-2 align-items-end p-3">
+        <div class="col-md-3">
+            <label class="form-label">Период</label>
+            <div class="d-flex">
+                <input type="date" name="from" class="form-control tdDateSize" />
+                <input type="date" name="to" class="form-control ms-2 tdDateSize" />
+            </div>
+        </div>
+        <div class="col-md-1-5">
+            <label class="form-label">Номер отгрузки</label>
+            <select name="number" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var number in Model.Select(s => s.Number).Distinct())
+                {
+                    <option value="@number">@number</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-1-5">
+            <label class="form-label">Ресурс</label>
+            <select name="resource" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var res in Model.SelectMany(s => s.Items).Select(i => i.Resource?.Name).Where(n => n != null).Distinct())
+                {
+                    <option value="@res">@res</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-1-5">
+            <label class="form-label">Единица измерения</label>
+            <select name="unit" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var unit in Model.SelectMany(s => s.Items).Select(i => i.Unit?.Name).Where(n => n != null).Distinct())
+                {
+                    <option value="@unit">@unit</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-1-5">
+            <label class="form-label">Клиент</label>
+            <select name="Client" class="form-select">
+                <option value="">Выберите</option>
+                @foreach (var Client in Model)
+                {
+                    <option value="@Client.client.Id">@Client.client.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn rounded-pill btn-outline-primary me-2">Применить</button>
+            <button type="button" class="btn rounded-pill btn-outline-secondary" onclick="resetFilters()">Сбросить</button>
+        </div>
+    </form>
+
+    <div id="shipments-container">
+        @await Html.PartialAsync("_FiltershipmentPartial", Model)
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="basicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить | Редактировать Отгрузку</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="addShipmentContainer">
+                <!-- partial view -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSRF Token -->
+<form id="csrf-form" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        $(function () {
+            const modalEl = document.getElementById('basicModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const token = $('#csrf-form input[name="__RequestVerificationToken"]').val();
+
+            function showLoader() {
+                $("#addShipmentContainer").html('<div class="text-center p-3"><div class="spinner-border text-primary"></div></div>');
+            }
+
+            $(document).on("submit", "#filter-form", function (e) {
+                e.preventDefault();
+                const data = $(this).serialize();
+                $.get("/shipment/Index", data, function (partial) {
+                    $("#shipments-container").html(partial);
+                });
+            });
+
+            $("#loadAddModal").click(function (e) {
+                e.preventDefault();
+                showLoader();
+                $.get("/shipment/Add", function (data) {
+                    $("#addShipmentContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить форму.");
+                });
+            });
+
+            $(document).on("click", ".open-shipment-form", function (e) {
+                e.preventDefault();
+                const id = $(this).data("id");
+                showLoader();
+                $.get("/shipment/Update/" + id, function (data) {
+                    $("#addShipmentContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить данные отгрузки.");
+                });
+            });
+
+            $(document).on("click", ".Delete-shipment", function (e) {
+                e.preventDefault();
+                const id = $(this).data("id");
+                $.ajax({
+                    url: "/shipment/Delete/" + id,
+                    type: "POST",
+                    headers: { 'RequestVerificationToken': token },
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        console.error("Ошибка:", xhr);
+                    }
+                });
+            });
+
+            $(document).on("click", ".asign-shipment", function (e) {
+            e.preventDefault();
+            const id = $(this).data("id");
+                $.ajax({
+                    url: "/shipment/MakeShipmentsigned/" + id,
+                    type: "POST",
+                    headers: { 'RequestVerificationToken': token },
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        console.error("Ошибка:", xhr);
+                    }
+                });
+            });
+
+            $(document).on("click", "#addShipmentContainer #submit-shipment-btn", function (e) {
+                e.preventDefault();
+                const form = $(this).closest("form");
+                const url = form.attr("action");
+                const data = form.serialize();
+                $.ajax({
+                    url: url,
+                    method: "POST",
+                    data: data,
+                    success: function (response) {
+                        if (response.success) {
+                            $("#basicModal").modal("hide");
+                            location.reload();
+                        } else {
+                            const errorHtml = response.errors.map(e => `<div class="alert alert-danger">${e}</div>`).join('');
+                            $("#addShipmentContainer").find(".alert").remove();
+                            $("#addShipmentContainer").prepend(errorHtml);
+                        }
+                    },
+                    error: function () {
+                        alert("Произошла ошибка при сохранении.");
+                    }
+                });
+            });
+        });
+
+        function resetFilters() {
+            $("#filter-form")[0].reset();
+            $("#filter-form").submit();
+        }
+    </script>
+}

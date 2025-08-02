@@ -1,0 +1,166 @@
+﻿@model List<Client>
+
+<div class="card">
+    <div class="card-header card-header-flex">
+        <div>
+            @if(ViewBag.status==0){
+                 <h5>Активные клиенты</h5>
+            }else{
+                <h5>Архивированные клиенты</h5>
+            }
+        </div>
+        <div>
+            <a id="loadAddModal" class="btn rounded-pill btn-outline-primary" href="#">Добавить</a>
+            @if (ViewBag.status==0){
+            <a class="btn rounded-pill btn-outline-dark" href="/Client/Index/1">архивy</a>
+            }else{
+                <a class="btn rounded-pill btn-outline-dark" href="/Client/Index/0">К рабочим</a>
+            }
+        </div>
+    </div>
+    <div class="table-responsive text-nowrap">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Наименование</th>
+                    <th>Адрес</th>
+                    <th>акция</th>
+                </tr>
+            </thead>
+            <tbody class="table-border-bottom-0">
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>@item.Address</td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                    <i class="bx bx-dots-vertical-rounded"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="#" class="dropdown-item open-client-form" data-id="@item.Id">
+                                        <i class="bx bx-pencil me-1"></i> Редактировать
+                                    </a>
+                                    @if (ViewBag.status == 0)
+                                    {
+                                        <a href="#" class="dropdown-item archive-client" data-id="@item.Id" data-status="@ViewBag.status">
+                                            <i class="bx bx-archive me-1"></i> К архиву
+                                        </a>
+                                    }else{
+                                        <a href="#" class="dropdown-item archive-client" data-id="@item.Id" data-status="@ViewBag.status">
+                                            <i class="bx bx-archive me-1"></i> К рабочим
+                                        </a>
+                                    }
+                              
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="basicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить | Редактировать Клиент</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="addClientContainer">
+                <!--  partial view  -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSRF Token -->
+<form id="csrf-form" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        $(function () {
+            const modalEl = document.getElementById('basicModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const token = $('#csrf-form input[name="__RequestVerificationToken"]').val();
+
+            function showLoader() {
+                $("#addClientContainer").html('<div class="text-center p-3"><div class="spinner-border text-primary"></div></div>');
+            }
+
+
+              $("#loadAddModal").click(function (e) {
+                e.preventDefault();
+                showLoader();
+                $.get("/Client/Add", function (data) {
+                    $("#addClientContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить форму.");
+                });
+            });
+            debugger
+            $(document).on("click", ".open-client-form", function (e) {
+                e.preventDefault();
+                const id = $(this).data("id");
+                showLoader();
+                $.get("/Client/Update/" + id, function (data) {
+                    $("#addClientContainer").html(data);
+                    modal.show();
+                }).fail(function () {
+                    alert("Не удалось загрузить данные клиента.");
+                });
+            });
+
+
+            $(document).on("click", ".archive-client", function (e) {
+                e.preventDefault();
+                const clientId = $(this).data("id");
+                const status = $(this).data("status");
+
+                $.ajax({
+                    url: "/Client/Archive/" + clientId + "/" + status,
+                    type: "POST",
+                    headers: { 'RequestVerificationToken': token },
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        console.error("Ошибка архивации:", xhr);
+                    }
+                });
+            });
+
+                $(document).on("click", "#addClientContainer #submit-Client-btn", function (e) {
+                e.preventDefault();
+                const form = $(this).closest("form");
+                const url = form.attr("action");
+                const data = form.serialize();
+                $.ajax({
+                    url: url,
+                    method: "POST",
+                    data: data,
+                    success: function (response) {
+                        if (response.success) {
+                            $("#basicModal").modal("hide");
+                            location.reload();
+                        } else {
+                            const errorHtml = response.errors.map(e => `<div class="alert alert-danger">${e}</div>`).join('');
+                            $("#addClientContainer").find(".alert").remove();
+                            $("#addClientContainer").prepend(errorHtml);
+                        }
+                    },
+                    error: function () {
+                        alert("Произошла ошибка при сохранении.");
+                    }
+                });
+            });
+        });
+    </script>
+}

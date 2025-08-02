@@ -1,0 +1,67 @@
+﻿@model List<Receipt>
+
+<div class="table-responsive text-nowrap">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Дата</th>
+                <th>Ресурс</th>
+                <th>Единица</th>
+                <th>Количество</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody class="table-border-bottom-0">
+            @foreach (var receipt in Model)
+            {
+                string receiptId = receipt.Id.ToString();
+                bool first = true;
+                foreach (var item in receipt.Items)
+                {
+                    <tr class="receipt-row">
+                        @if (first)
+                        {
+                            <td rowspan="@receipt.Items.Count">@receipt.Number</td>
+                            <td rowspan="@receipt.Items.Count">@receipt.Date.ToShortDateString()</td>
+                        }
+                        else
+                        {
+                            <td style="display:none"></td>
+                            <td style="display:none"></td>
+                        }
+
+                        <td>@item.Resource?.Name</td>
+                        <td>@item.Unit?.Name</td>
+                        <td>@item.Quantity</td>
+
+                        @if (first)
+                        {
+                            <td rowspan="@receipt.Items.Count">
+                                <div class="dropdown">
+                                    <button class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                        <i class="bx bx-dots-vertical-rounded"></i>
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a href="#" class="dropdown-item open-receipt-form" data-id="@receipt.Id">
+                                            <i class="bx bx-pencil me-1"></i> Редактировать
+                                        </a>
+                                        <a href="#" class="dropdown-item Delete-receipt" data-id="@receipt.Id">
+                                            <i class="bx bx-trash me-1"></i> Удалить
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        }
+                        else
+                        {
+                            <td style="display:none"></td>
+                        }
+
+                        @if (first) { first = false; }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
