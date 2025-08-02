@@ -24,8 +24,9 @@ namespace WarehouseManagementSystem
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
                 db.Database.Migrate();
-
-                var sql = await File.ReadAllTextAsync("SqlScripts/SyncBalance.sql");
+                var rootPath = AppContext.BaseDirectory;
+                var sqlPath = Path.Combine(rootPath, "SqlScripts", "SyncBalance.sql");
+                var sql = await File.ReadAllTextAsync(sqlPath);
                 await db.Database.ExecuteSqlRawAsync(sql);
 
 
@@ -36,7 +37,7 @@ namespace WarehouseManagementSystem
                 app.UseExceptionHandler("/Home/Error");
             }
             app.UseRouting();
-
+            app.UseHttpsRedirection();
             app.UseAuthorization();
 
             app.MapStaticAssets();
