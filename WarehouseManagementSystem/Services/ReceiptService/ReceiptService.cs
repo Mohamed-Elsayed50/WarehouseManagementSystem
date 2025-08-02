@@ -38,11 +38,8 @@ namespace WarehouseManagementSystem.Services.ReceiptService
         {
             var receipts = await _receiptRepo.GetListAsync(
                 x => !x.IsDeleted,
-                includes: x => x
-                    .Include(x => x.Items)
-                        .ThenInclude(i => i.Resource)
-                    .Include(x => x.Items)
-                        .ThenInclude(i => i.Unit)
+                includes: x => x.Include(x => x.Items).ThenInclude(i => i.Resource).Include(x => x.Items).ThenInclude(i => i.Unit),
+                orderBy:x=>x.OrderBy(x=>x.Number)
             );
 
 
