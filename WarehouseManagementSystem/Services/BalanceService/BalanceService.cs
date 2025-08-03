@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using WarehouseManagementSystem.Models;
+using WarehouseManagementSystem.Repositories.BaseRepository;
 using WarehouseManagementSystem.Repository.Base;
 
 namespace WarehouseManagementSystem.Services.BalanceService
@@ -32,49 +34,6 @@ namespace WarehouseManagementSystem.Services.BalanceService
             }
         }
 
-  
-        public async Task AddToBalance(Guid ResourceId, Guid UnitId,decimal Quantity)
-        {
-            var existingBalance = await _balanceService.GetByConditionAsync<balance>(x =>x.ResourceId == ResourceId && x.UnitOfMeasurementId == UnitId);
-
-            if (existingBalance != null)
-            {
-                // Update quantity
-                existingBalance.Quantity += Quantity;
-                await _balanceService.UpdateAsync(existingBalance);
-            }
-            else
-            {
-                // Create new balance entry
-                var newBalance = new balance
-                {
-                    Id = Guid.NewGuid(),
-                    ResourceId = ResourceId,
-                    UnitOfMeasurementId = UnitId,
-                    Quantity = Quantity
-                };
-                await _balanceService.AddAsync(newBalance);
-            }
-
-            await _balanceService.SaveChangesAsync();
-        }
-
-        public async Task DeleteFromBalance(Guid ResourceId, Guid UnitId, decimal Quantity)
-        {
-            var existingBalance = await _balanceService.GetByConditionAsync<balance>(x => x.ResourceId == ResourceId && x.UnitOfMeasurementId == UnitId);
-
-            if (existingBalance != null)
-            {
-                // Update quantity
-                existingBalance.Quantity -= Quantity;
-                await _balanceService.UpdateAsync(existingBalance);
-                await _balanceService.SaveChangesAsync();
-            }
-
-        }
-
-
-
         public async Task UpdateBalance()
         {
             try
@@ -83,6 +42,69 @@ namespace WarehouseManagementSystem.Services.BalanceService
             }
             catch (Exception ex) {
                 throw new ApplicationException("Произошла ошибка при загрузке списка баласов.", ex);
+            }
+        }
+
+
+        public async Task<decimal> GetAvailableQuantity(Guid resourceId, Guid unitId)
+        {
+            try
+            {
+                var balance = await _balanceService.GetByConditionAsync<balance>(b =>
+                            b.ResourceId == resourceId && b.UnitOfMeasurementId == unitId);
+
+                return balance?.Quantity ?? 0;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Произошла ошибка при загрузке списка баласов.", ex);
+            }
+        }
+
+
+        public async Task<TResult> GetBalanceByConditionAsync<TResult>(
+                      Expression<Func<balance, bool>> where = null,
+                      Expression<Func<balance, TResult>> selector = null,
+                      bool asNoTracking = false,
+                      Func<IQueryable<balance>, IQueryable<balance>> includes = null)
+        {
+            return await _balanceService.GetByConditionAsync(
+                where: where,
+                selector: selector,
+                includes: includes
+            );
+        }
+
+        public async Task<(List<UnitsOfMeasurement>, List<Resource>)> GetItemsWithCount()
+        {
+            try
+            {
+                var balances = await _balanceService.GetListAsync(includes: x => x
+                    .Include(x => x.UnitOfMeasurement)
+                    .Include(x => x.resource));
+
+                if (balances == null || balances.Count == 0)
+                    throw new Exception("Не найдено ни одной позиции.");
+
+                var uniqueUnits = balances
+                    .Select(x => x.UnitOfMeasurement)
+                    .Where(u => u != null)
+                    .GroupBy(u => u.Id)
+                    .Select(g => g.First())
+                    .ToList();
+
+                var uniqueResources = balances
+                    .Select(x => x.resource)
+                    .Where(r => r != null)
+                    .GroupBy(r => r.Id)
+                    .Select(g => g.First())
+                    .ToList();
+
+                return (uniqueUnits, uniqueResources);
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException("Ошибка при получении единиц и ресурсов.", ex);
             }
         }
     }

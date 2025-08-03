@@ -11,6 +11,5 @@ namespace WarehouseManagementSystem.Services.ReceiptService
         Task<ResponseVM<ReceiptVM>> UpdateReceiptAsync(ReceiptVM model);
         Task DeleteReceiptAsync(Guid id);
         Task<List<Receipt>> GetFilteredReceiptsAsync(DateTime? from, DateTime? to, int? number, string? resource, string? unit);
-        Task<(List<UnitsOfMeasurement>, List<Resource>)> GetItemsWithCount();
     }
 }

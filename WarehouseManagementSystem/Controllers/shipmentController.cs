@@ -1,11 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using WarehouseManagementSystem.Enums;
+using WarehouseManagementSystem.Services.BalanceService;
 using WarehouseManagementSystem.Services.ClientService;
-using WarehouseManagementSystem.Services.ReceiptService;
-using WarehouseManagementSystem.Services.ResourceService;
 using WarehouseManagementSystem.Services.ShipmentService;
-using WarehouseManagementSystem.Services.UnitsOfMeasurementService;
 using WarehouseManagementSystem.ViewModels;
 
 namespace WarehouseManagementSystem.Controllers
@@ -14,24 +12,18 @@ namespace WarehouseManagementSystem.Controllers
     {
         private readonly IShipmentService _shipmentService;
         private readonly IClientService _clientService;
-        private readonly IResourceService _resourceService;
-        private readonly IReceiptService _receiptService;
-        private readonly IUnitsOfMeasurementService _unitsService;
+        private readonly IBalanceService _balanceService;
         private readonly ILogger<shipmentController> _logger;
 
         public shipmentController(IShipmentService shipmentService,
                                    IClientService clientService,
-                                   IResourceService resourceService,
-                                   IUnitsOfMeasurementService unitsService,
                                    ILogger<shipmentController> logger,
-                                   IReceiptService receiptService)
+                                   IBalanceService balanceService)
         {
             _shipmentService = shipmentService;
             _clientService = clientService;
-            _resourceService = resourceService;
-            _unitsService = unitsService;
             _logger = logger;
-            _receiptService = receiptService;
+            _balanceService = balanceService;
         }
 
         [HttpGet]
@@ -55,13 +47,14 @@ namespace WarehouseManagementSystem.Controllers
 
         public async Task<IActionResult> Add()
         {
-            var Items = await _receiptService.GetItemsWithCount();
+            var Items = await _balanceService.GetItemsWithCount();
             var model = new ShipmentVM
             {
+                Date = DateTime.Now,
+                ClientList = new SelectList(await _clientService.GetAllClientsAsync(0), "Id", "Name"),
+                AvailableQuantity = 0,
                 UnitList = new SelectList(Items.Item1, "Id", "Name"),
                 ResourceList = new SelectList(Items.Item2, "Id", "Name"),
-                ClientList = new SelectList(await _clientService.GetAllClientsAsync(0), "Id", "Name"),
-                Date = DateTime.Now
             };
             return PartialView("_AddEditPartial", model);
         }
@@ -76,12 +69,13 @@ namespace WarehouseManagementSystem.Controllers
                 var shipment = await _shipmentService.GetByIdAsync(guid);
                 if (shipment == null)
                     return NotFound("Отгрузка не найдена.");
-
+                var Items = await _balanceService.GetItemsWithCount();
                 var vm = new ShipmentVM(shipment)
                 {
-                    ResourceList = new SelectList(await _resourceService.GetAllResourcesAsync(0), "Id", "Name"),
-                    UnitList = new SelectList(await _unitsService.GetAllUnitsOfMeasurementsAsync(0), "Id", "Name"),
-                    ClientList = new SelectList(await _clientService.GetAllClientsAsync(0), "Id", "Name")
+                    ClientList = new SelectList(await _clientService.GetAllClientsAsync(0), "Id", "Name"),
+                    AvailableQuantity = 0,
+                    UnitList = new SelectList(Items.Item1, "Id", "Name"),
+                    ResourceList = new SelectList(Items.Item2, "Id", "Name"),
                 };
 
                 return PartialView("_AddEditPartial", vm);
@@ -187,6 +181,13 @@ namespace WarehouseManagementSystem.Controllers
                 _logger.LogError(ex, "Ошибка при архивировании отгрузки.");
                 return StatusCode(500, "Произошла ошибка при архивировании.");
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> getAvailableQuantity(Guid resourceId, Guid unitId)
+        {
+            var quantity = await _balanceService.GetAvailableQuantity(resourceId, unitId);
+            return Json(new { availableQuantity = quantity });
         }
 
     }

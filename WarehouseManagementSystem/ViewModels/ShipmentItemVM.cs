@@ -13,5 +13,6 @@ namespace WarehouseManagementSystem.ViewModels
         [Required]
         [Range(0.01, double.MaxValue, ErrorMessage = "Введите количество")]
         public decimal Quantity { get; set; }
+
     }
 }

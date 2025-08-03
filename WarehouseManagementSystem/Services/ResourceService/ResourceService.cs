@@ -1,26 +1,31 @@
 ﻿using WarehouseManagementSystem.Enums;
 using WarehouseManagementSystem.Models;
 using WarehouseManagementSystem.Repository.Base;
+using WarehouseManagementSystem.Services.BalanceService;
 using WarehouseManagementSystem.Services.ResourceService;
 using WarehouseManagementSystem.ViewModels;
 
 public class ResourceService : IResourceService
 {
     private readonly IBaseRepository<Resource> _ResourceRepo;
-
-    public ResourceService(IBaseRepository<Resource> ResourceRepo)
+    private readonly IBalanceService _balanceService;
+    public ResourceService(IBaseRepository<Resource> ResourceRepo, IBalanceService balanceService)
     {
         _ResourceRepo = ResourceRepo;
+        _balanceService = balanceService;
     }
 
     public async Task<List<Resource>> GetAllResourcesAsync(int status)
     {
         try
         {
-            if(status == 0) 
+            await _balanceService.UpdateBalance();
+            if (status == 0) 
                 return await _ResourceRepo.GetAll(x => !x.Archived);
             else
                 return await _ResourceRepo.GetAll(x => x.Archived);
+
+
         }
         catch (Exception ex)
         {

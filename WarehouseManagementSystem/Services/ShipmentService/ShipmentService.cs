@@ -22,6 +22,9 @@ namespace WarehouseManagementSystem.Services.ShipmentService
 
         public async Task<List<shipment>> GetFilteredShipmentsAsync(DateTime? from, DateTime? to, int? number, string? resource, string? unit,string? Client)
         {
+            await _balanceService.UpdateBalance();
+
+
             var shipments = await _shipmentRepo.GetListAsync(
                 x => !x.IsDeleted,
                 includes: x => x
@@ -52,9 +55,9 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                     ).ToList();
             }
 
-            shipments = shipments.Where(s => s.Items.Any()).ToList();
+      
 
-            return shipments;
+            return shipments.OrderBy(x => x.Number).ToList();
         }
 
         public async Task<shipment?> GetByIdAsync(Guid id)
@@ -77,8 +80,11 @@ namespace WarehouseManagementSystem.Services.ShipmentService
 
         public async Task<ResponseVM<ShipmentVM>> AddShipmentAsync(ShipmentVM model)
         {
+            using var transaction = await _shipmentRepo.BeginTransactionAsync();
             try
             {
+
+
                 var numberExists = await _shipmentRepo.GetByConditionAsync<shipment>(x => x.Number == model.Number);
                 if (numberExists != null)
                 {
@@ -88,6 +94,26 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                         Status = ResponseStatus.Error,
                         Message = "В системе уже зарегистрирована накладная с таким номером"
                     };
+                }
+
+
+                foreach (var item in model.Items)
+                {
+                    var availableQuantity = await _balanceService.GetBalanceByConditionAsync<balance>(x =>
+                        x.ResourceId == item.ResourceId &&
+                        x.UnitOfMeasurementId == item.UnitId,includes:x=>x.Include(x=>x.UnitOfMeasurement).Include(x=>x.resource));
+
+                    if (availableQuantity == null || availableQuantity.Quantity < item.Quantity)
+                    {
+            
+                        return new ResponseVM<ShipmentVM>
+                        {
+                            Data = model,
+                            Status = ResponseStatus.Error,
+                            Message = $"Недостаточное количество для {availableQuantity?.resource.Name} ({availableQuantity?.UnitOfMeasurement.Name}). " +
+                                       $"Доступно: {availableQuantity?.Quantity ?? 0}, Запрошено: {item.Quantity}"
+                        };
+                    }
                 }
 
                 var shipment = new shipment
@@ -107,16 +133,18 @@ namespace WarehouseManagementSystem.Services.ShipmentService
 
                 await _shipmentRepo.AddAsync(shipment);
                 await _shipmentRepo.SaveChangesAsync();
-
+                await transaction.CommitAsync();
                 return new ResponseVM<ShipmentVM>
                 {
                     Data = model,
                     Status = ResponseStatus.Success,
                     Message = "Отгрузка успешно добавлена."
                 };
+              
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 throw new ApplicationException("Ошибка при добавлении отгрузки.", ex);
             }
         }
@@ -141,6 +169,24 @@ namespace WarehouseManagementSystem.Services.ShipmentService
 
                 await _itemRepo.DeleteRangeAsync(existing.Items);
 
+                foreach (var item in model.Items)
+                {
+                    var availableQuantity = await _balanceService.GetBalanceByConditionAsync<balance>(x =>
+                        x.ResourceId == item.ResourceId &&
+                        x.UnitOfMeasurementId == item.UnitId, includes: x => x.Include(x => x.UnitOfMeasurement).Include(x => x.resource));
+
+                    if (availableQuantity == null || availableQuantity.Quantity < item.Quantity)
+                    {
+
+                        return new ResponseVM<ShipmentVM>
+                        {
+                            Data = model,
+                            Status = ResponseStatus.Error,
+                            Message = $"Недостаточное количество для {availableQuantity?.resource.Name} ({availableQuantity?.UnitOfMeasurement.Name}). " +
+                                       $"Доступно: {availableQuantity?.Quantity ?? 0}, Запрошено: {item.Quantity}"
+                        };
+                    }
+                }
                 var newItems = model.Items.Select(i => new shipmentItems
                 {
                     Id = Guid.NewGuid(),
@@ -204,20 +250,6 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                 throw new ApplicationException("Ошибка при архивировании отгрузки.", ex);
             }
         }
-        private async Task AddToBalance(List<shipmentItems> shipmentItems)
-        {
-            foreach (var item in shipmentItems)
-            {
-                await _balanceService.AddToBalance(item.ResourceId, item.UnitId, item.Quantity);
-            }
-        }
 
-        private async Task DeleteFromBalance(List<shipmentItems> shipmentItems)
-        {
-            foreach (var item in shipmentItems)
-            {
-                await _balanceService.DeleteFromBalance(item.ResourceId, item.UnitId, item.Quantity);
-            }
-        }
     }
 }

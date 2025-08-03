@@ -62,9 +62,9 @@ namespace WarehouseManagementSystem.Services.ReceiptService
                     ).ToList();
             }
 
-            receipts = receipts.Where(r => r.Items.Any()).ToList();
 
-            return receipts;
+
+            return receipts.OrderBy(x=>x.Number).ToList();
         }
 
 
@@ -85,6 +85,7 @@ namespace WarehouseManagementSystem.Services.ReceiptService
 
         public async Task<ResponseVM<ReceiptVM>> AddReceiptAsync(ReceiptVM model)
         {
+            using var transaction = await _receiptRepo.BeginTransactionAsync();
             try
             {
                 var NumberIsExist = await _receiptRepo.GetByConditionAsync<Receipt>(x=>x.Number== model.Number);
@@ -113,8 +114,8 @@ namespace WarehouseManagementSystem.Services.ReceiptService
                 };
                 await _receiptRepo.AddAsync(receipt);
                 await _receiptRepo.SaveChangesAsync();
+                await transaction.CommitAsync();
 
- 
                 return new ResponseVM<ReceiptVM>
                 {
                     Data = model,
@@ -125,6 +126,7 @@ namespace WarehouseManagementSystem.Services.ReceiptService
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 throw new ApplicationException("Ошибка при добавлении прихода.", ex);
             }
         }
@@ -198,54 +200,8 @@ namespace WarehouseManagementSystem.Services.ReceiptService
             }
         }
 
-        private async Task DeleteFromBalaceItem(List<ReceiptItem> receiptItems)
-        {
-            foreach (var receiptItem in receiptItems)
-            {
-                await _balanceService.DeleteFromBalance(receiptItem.ResourceId, receiptItem.UnitId,receiptItem.Quantity);
-            }
-        }
 
-        private async Task AddFromBalaceItem(List<ReceiptItem> receiptItems)
-        {
-            foreach (var receiptItem in receiptItems)
-            {
-                await _balanceService.AddToBalance(receiptItem.ResourceId, receiptItem.UnitId, receiptItem.Quantity);
-            }
-        }
 
-        public async Task<(List<UnitsOfMeasurement>, List<Resource>)> GetItemsWithCount()
-        {
-            try
-            {
-                var receiptItems = await _itemRepo.GetListAsync(includes: x => x
-                    .Include(x => x.Unit)
-                    .Include(x => x.Resource));
-
-                if (receiptItems == null || receiptItems.Count == 0)
-                    throw new Exception("Не найдено ни одной позиции.");
-
-                var uniqueUnits = receiptItems
-                    .Select(x => x.Unit)
-                    .Where(u => u != null)
-                    .GroupBy(u => u.Id)
-                    .Select(g => g.First())
-                    .ToList();
-
-                var uniqueResources = receiptItems
-                    .Select(x => x.Resource)
-                    .Where(r => r != null)
-                    .GroupBy(r => r.Id)
-                    .Select(g => g.First())
-                    .ToList();
-
-                return (uniqueUnits, uniqueResources);
-            }
-            catch (Exception ex)
-            {
-                throw new ApplicationException("Ошибка при получении единиц и ресурсов.", ex);
-            }
-        }
 
     }
 }

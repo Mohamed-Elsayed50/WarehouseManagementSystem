@@ -20,13 +20,13 @@ namespace WarehouseManagementSystem.ViewModels
 
         [Required]
         public Guid ClientId { get; set; }
-
-        public List<ShipmentItemVM> Items { get; set; } = new();
-
-        // Dropdown lists
         public SelectList ResourceList { get; set; }
         public SelectList UnitList { get; set; }
+        public List<ShipmentItemVM> Items { get; set; } = new();
+
         public SelectList ClientList { get; set; }
+        [Display(Name = "الكمية المتاحة")]
+        public decimal AvailableQuantity { get; set; }
 
         public ShipmentVM() { }
 
