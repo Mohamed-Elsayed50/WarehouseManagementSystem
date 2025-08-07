@@ -43,18 +43,18 @@
                                     <i class="bx bx-dots-vertical-rounded"></i>
                                 </button>
                                 <div class="dropdown-menu">
-                                    <a href="#" class="dropdown-item open-Unit-form" data-id="@item.Id">
+                                    <a href="#" class="dropdown-item open-unit-form" data-id="@item.Id">
                                         <i class="bx bx-pencil me-1"></i> Редактировать
                                     </a>
                                     @if (ViewBag.status == 0)
                                     {
-                                        <a href="#" class="dropdown-item archive-Unit" data-id="@item.Id" data-status="@ViewBag.status">
+                                        <a href="#" class="dropdown-item archive-unit" data-id="@item.Id" data-status="@ViewBag.status">
                                             <i class="bx bx-archive me-1"></i> К архиву
                                         </a>
                                     }
                                     else
                                     {
-                                        <a href="#" class="dropdown-item archive-Unit" data-id="@item.Id" data-status="@ViewBag.status">
+                                        <a href="#" class="dropdown-item archive-unit" data-id="@item.Id" data-status="@ViewBag.status">
                                             <i class="bx bx-archive me-1"></i> К рабочим
                                         </a>
                                     }
@@ -114,13 +114,13 @@
             });
 
 
-            $(document).on("click", ".open-Unit-form", function (e) {
+            $(document).on("click", ".open-unit-form", function (e) {
                 e.preventDefault();
-                const UnitId = $(this).data("id");
+                const unitId = $(this).data("id");
                 showLoader();
 
-                $.get("/UnitsOfMeasurement/Update/" + UnitId, function (data) {
-                    $("#addClientContainer").html(data);
+                $.get("/UnitsOfMeasurement/Update/" + unitId, function (data) {
+                    $("#addUnitContainer").html(data);
                     modal.show();
                 }).fail(function () {
                     alert("Не удалось загрузить данные клиента.");
@@ -128,7 +128,7 @@
             });
 
 
-            $(document).on("click", ".archive-Unit", function (e) {
+            $(document).on("click", ".archive-unit", function (e) {
                 e.preventDefault();
                 const UnitId = $(this).data("id");
                 const status = $(this).data("status");

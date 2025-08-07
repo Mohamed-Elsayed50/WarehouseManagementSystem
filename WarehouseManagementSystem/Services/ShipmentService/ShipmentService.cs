@@ -34,7 +34,7 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                 filter = filter.And(x => x.Date <= to.Value);
 
             if (number.HasValue)
-                filter = filter.And(x => x.Number >= number.Value);
+                filter = filter.And(x => x.Number == number.Value);
 
             if (!string.IsNullOrEmpty(resource))
                 filter = filter.And(x => x.Items.Any(x=>x.Resource.Name == resource));
