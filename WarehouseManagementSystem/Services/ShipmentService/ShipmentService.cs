@@ -31,7 +31,7 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                 filter = filter.And(x => x.Date >= from.Value);
 
             if (to.HasValue)
-                filter = filter.And(x => x.Date >= to.Value);
+                filter = filter.And(x => x.Date <= to.Value);
 
             if (number.HasValue)
                 filter = filter.And(x => x.Number >= number.Value);
@@ -46,24 +46,15 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                 filter = filter.And(x => x.client.Id.ToString()==Client);
 
             var shipments = await _shipmentRepo.GetListAsync(
-            where: filter,
-                includes: x => x
-                    .Include(s => s.Items)
-                        .ThenInclude(i => i.Resource)
-                    .Include(s => s.Items)
-                        .ThenInclude(i => i.Unit)
-                    .Include(s => s.client),orderBy: x=>x.OrderBy(x=>x.Number)
-            );
-
-            foreach (var shipment in shipments)
-            {
-                shipment.Items = shipment.Items
-                    .Where(i =>
-                        (string.IsNullOrEmpty(resource) || i.Resource?.Name == resource) &&
-                        (string.IsNullOrEmpty(unit) || i.Unit?.Name == unit)
-                    )
-                    .ToList();
-            }
+              where: filter,
+              includes: q => q
+                  .Include(s => s.Items.Where(i =>(string.IsNullOrEmpty(resource) || i.Resource.Name == resource) && (string.IsNullOrEmpty(unit) || i.Unit.Name == unit)))
+                      .ThenInclude(i => i.Resource)
+                      .Include(s => s.Items.Where(i =>(string.IsNullOrEmpty(resource) || i.Resource.Name == resource) && (string.IsNullOrEmpty(unit) || i.Unit.Name == unit)))
+                      .ThenInclude(i => i.Unit)
+                  .Include(s => s.client),
+              orderBy: x => x.OrderBy(s => s.Number)
+          );
             return shipments;
         }
 

@@ -59,19 +59,13 @@ namespace WarehouseManagementSystem.Services.ReceiptService
             var receipts = await _receiptRepo.GetListAsync(
                 where: filter,
                 includes: q => q
-                    .Include(x => x.Items).ThenInclude(i => i.Resource)
-                    .Include(x => x.Items).ThenInclude(i => i.Unit),
+                    .Include(x => x.Items.Where(i=>( string.IsNullOrEmpty(resource) || i.Resource.Name == resource) && (string.IsNullOrEmpty(unit) || i.Unit.Name == unit)))
+                    .ThenInclude(i => i.Resource)
+                    .Include(x => x.Items.Where(i=>(string.IsNullOrEmpty(resource)||i.Resource.Name ==resource) && (string.IsNullOrEmpty(unit) || i.Unit.Name == unit)))
+                    .ThenInclude(i => i.Unit),
                 orderBy: q => q.OrderBy(x => x.Number)
             );
-            foreach (var receipt in receipts)
-            {
-                receipt.Items = receipt.Items
-                    .Where(i =>
-                        (string.IsNullOrEmpty(resource) || i.Resource?.Name == resource) &&
-                        (string.IsNullOrEmpty(unit) || i.Unit?.Name == unit)
-                    )
-                    .ToList();
-            }
+
 
             return receipts;
         }
