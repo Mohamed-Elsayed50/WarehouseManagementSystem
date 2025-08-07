@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using WarehouseManagementSystem.Models;
 using WarehouseManagementSystem.Repositories.BaseRepository;
 using WarehouseManagementSystem.Repository.Base;
+using LinqKit;
 
 namespace WarehouseManagementSystem.Services.BalanceService
 {
@@ -19,12 +20,19 @@ namespace WarehouseManagementSystem.Services.BalanceService
             try
             {
                 await UpdateBalance();
-                var balances = await _balanceService.GetListAsync(includes:x=>x.Include(x=>x.UnitOfMeasurement).Include(x=>x.resource));
+
+                var filter = PredicateBuilder.New<balance>(true);
 
                 if (resourceId.HasValue)
-                    balances  = balances.Where(x=>x.ResourceId==resourceId).ToList();
+                    filter = filter.And(x => x.ResourceId == resourceId);
+
                 if(unitId.HasValue)
-                    balances = balances.Where(x=>x.UnitOfMeasurementId==unitId).ToList();
+                    filter = filter.And(x => x.UnitOfMeasurementId == unitId);
+
+                var balances = await _balanceService.GetListAsync(
+                    where: filter,
+                    includes:x=>x.Include(x=>x.UnitOfMeasurement).Include(x=>x.resource));
+
 
                 return balances;
             }

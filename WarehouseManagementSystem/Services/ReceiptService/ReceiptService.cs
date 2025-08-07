@@ -1,10 +1,12 @@
 ﻿using Azure;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using WarehouseManagementSystem.Enums;
 using WarehouseManagementSystem.Models;
 using WarehouseManagementSystem.Repository.Base;
 using WarehouseManagementSystem.Services.BalanceService;
 using WarehouseManagementSystem.ViewModels;
+using LinqKit;
 
 namespace WarehouseManagementSystem.Services.ReceiptService
 {
@@ -36,36 +38,44 @@ namespace WarehouseManagementSystem.Services.ReceiptService
         }
         public async Task<List<Receipt>> GetFilteredReceiptsAsync(DateTime? from, DateTime? to, int? number, string? resource, string? unit)
         {
-            var receipts = await _receiptRepo.GetListAsync(
-                x => !x.IsDeleted,
-                includes: x => x.Include(x => x.Items).ThenInclude(i => i.Resource).Include(x => x.Items).ThenInclude(i => i.Unit),
-                orderBy:x=>x.OrderBy(x=>x.Number)
-            );
+            var filter =PredicateBuilder.New<Receipt> (x=>!x.IsDeleted);
 
 
             if (from.HasValue)
-                receipts = receipts.Where(x => x.Date >= from.Value).ToList();
+                filter = filter.And(x => x.Date >= from.Value);
 
             if (to.HasValue)
-                receipts = receipts.Where(x => x.Date <= to.Value).ToList();
+                filter = filter.And(x => x.Date <= to.Value);
 
-            if (number.HasValue && number >= 0)
-                receipts = receipts.Where(x => x.Number == number).ToList();
+            if (number.HasValue)
+                filter = filter.And(x => x.Number == number.Value);
 
+            if (!string.IsNullOrEmpty(resource))
+                filter = filter.And(x => x.Items.Any(i => i.Resource.Name == resource));
 
+            if (!string.IsNullOrEmpty(unit))
+                filter = filter.And(x => x.Items.Any(i => i.Unit.Name == unit));
+
+            var receipts = await _receiptRepo.GetListAsync(
+                where: filter,
+                includes: q => q
+                    .Include(x => x.Items).ThenInclude(i => i.Resource)
+                    .Include(x => x.Items).ThenInclude(i => i.Unit),
+                orderBy: q => q.OrderBy(x => x.Number)
+            );
             foreach (var receipt in receipts)
             {
                 receipt.Items = receipt.Items
                     .Where(i =>
                         (string.IsNullOrEmpty(resource) || i.Resource?.Name == resource) &&
                         (string.IsNullOrEmpty(unit) || i.Unit?.Name == unit)
-                    ).ToList();
+                    )
+                    .ToList();
             }
 
-
-
-            return receipts.OrderBy(x=>x.Number).ToList();
+            return receipts;
         }
+
 
 
         public async Task<Receipt?> GetByIdAsync(Guid id)

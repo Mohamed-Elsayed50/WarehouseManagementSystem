@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using LinqKit;
+using Microsoft.EntityFrameworkCore;
 using WarehouseManagementSystem.Enums;
 using WarehouseManagementSystem.Models;
 using WarehouseManagementSystem.Repository.Base;
@@ -24,27 +25,35 @@ namespace WarehouseManagementSystem.Services.ShipmentService
         {
             await _balanceService.UpdateBalance();
 
+            var filter = PredicateBuilder.New<shipment>(x => !x.IsDeleted);
+
+            if (from.HasValue)
+                filter = filter.And(x => x.Date >= from.Value);
+
+            if (to.HasValue)
+                filter = filter.And(x => x.Date >= to.Value);
+
+            if (number.HasValue)
+                filter = filter.And(x => x.Number >= number.Value);
+
+            if (!string.IsNullOrEmpty(resource))
+                filter = filter.And(x => x.Items.Any(x=>x.Resource.Name == resource));
+
+            if (!string.IsNullOrEmpty(unit))
+                filter = filter.And(x => x.Items.Any(x => x.Unit.Name == unit));
+
+            if(!string.IsNullOrEmpty(Client))
+                filter = filter.And(x => x.client.Id.ToString()==Client);
 
             var shipments = await _shipmentRepo.GetListAsync(
-                x => !x.IsDeleted,
+            where: filter,
                 includes: x => x
                     .Include(s => s.Items)
                         .ThenInclude(i => i.Resource)
                     .Include(s => s.Items)
                         .ThenInclude(i => i.Unit)
-                    .Include(s => s.client)
+                    .Include(s => s.client),orderBy: x=>x.OrderBy(x=>x.Number)
             );
-
-            if (from.HasValue)
-                shipments = shipments.Where(x => x.Date >= from.Value).ToList();
-
-            if (to.HasValue)
-                shipments = shipments.Where(x => x.Date <= to.Value).ToList();
-
-            if (number.HasValue && number >= 0)
-                shipments = shipments.Where(x => x.Number == number).ToList();
-            if (!string.IsNullOrEmpty(Client))
-                shipments = shipments.Where(x => x.client?.Id.ToString() == Client).ToList();
 
             foreach (var shipment in shipments)
             {
@@ -52,12 +61,10 @@ namespace WarehouseManagementSystem.Services.ShipmentService
                     .Where(i =>
                         (string.IsNullOrEmpty(resource) || i.Resource?.Name == resource) &&
                         (string.IsNullOrEmpty(unit) || i.Unit?.Name == unit)
-                    ).ToList();
+                    )
+                    .ToList();
             }
-
-      
-
-            return shipments.OrderBy(x => x.Number).ToList();
+            return shipments;
         }
 
         public async Task<shipment?> GetByIdAsync(Guid id)
