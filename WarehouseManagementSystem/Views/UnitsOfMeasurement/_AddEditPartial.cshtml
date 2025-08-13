@@ -1,6 +1,6 @@
 ﻿@model UnitsOfMeasurement
 
-<form asp-action="@(Model.Id==Guid.Empty ? "SubmitAdd" : "SubmitUpdate")" method="post">
+<form asp-action="@(Model.Id!=Guid.Empty ? "SubmitAdd" : "SubmitUpdate")" method="post">
     @Html.AntiForgeryToken()
     @if (Model.Id != Guid.Empty)
     {
