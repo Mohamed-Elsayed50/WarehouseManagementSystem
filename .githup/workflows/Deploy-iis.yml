@@ -1,28 +1,11 @@
-name: Deploy to IIS
+name: Test Runner
 
 on:
   push:
-    branches: [ "master" ]   # غيّرها لـ "main" لو ده الفرع الافتراضي عندك
+    branches: [ "master" ]   # أو main
 
 jobs:
-  build-and-deploy:
-    runs-on: [self-hosted, Windows, X64]   # مهم جداً: لازم تستخدم نفس الـ labels اللي ظهرت في صفحة GitHub
-
+  hello:
+    runs-on: [self-hosted, Windows, X64]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Publish .NET app
-        run: dotnet publish -c Release -o publish
-
-      - name: Deploy to IIS (without touching wwwroot)
-        shell: powershell
-        run: |
-          $source = "$(Get-Location)\publish\*"
-          $dest   = "C:\Users\Dhiaa\Desktop\New folder (4)\ware"
-
-          # انسخ كل حاجة ماعدا wwwroot
-          robocopy $source $dest /MIR /XD wwwroot
-
-          # Restart IIS
-          iisreset
+      - run: echo "Hello from my self-hosted runner on Windows!"
