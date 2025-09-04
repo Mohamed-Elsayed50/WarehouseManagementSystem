@@ -2,11 +2,11 @@ name: Deploy to IIS
 
 on:
   push:
-    branches: [ "master" ]   # يشتغل على كل push للـ main
+    branches: [ "master" ]   # غيّرها لـ "main" لو الفرع عندك main
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted   # هنا بنستخدم السيرفر بتاعك
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -16,12 +16,13 @@ jobs:
         run: dotnet publish -c Release -o publish
 
       - name: Deploy to IIS (without touching wwwroot)
+        shell: powershell
         run: |
           $source = "$(Get-Location)\publish\*"
           $dest   = "C:\Users\Dhiaa\Desktop\New folder (4)\ware"
 
-      
+          # انسخ كل حاجة ماعدا wwwroot
           robocopy $source $dest /MIR /XD wwwroot
 
-        
+          # Restart IIS
           iisreset
