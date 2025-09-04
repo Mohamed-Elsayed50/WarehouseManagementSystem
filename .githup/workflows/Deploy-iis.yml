@@ -2,11 +2,11 @@ name: Deploy to IIS
 
 on:
   push:
-    branches: [ "master" ]   # غيّرها لـ "main" لو الفرع عندك main
+    branches: [ "master" ]   # غيّرها لـ "main" لو ده الفرع الافتراضي عندك
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Windows, X64]   # مهم جداً: لازم تستخدم نفس الـ labels اللي ظهرت في صفحة GitHub
 
     steps:
       - name: Checkout code
