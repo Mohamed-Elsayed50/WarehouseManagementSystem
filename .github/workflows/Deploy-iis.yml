@@ -13,11 +13,11 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Publish .NET app
-        shell: cmd
+        shell: cmd.exe
         run: dotnet publish -c Release -o publish
 
       - name: Deploy to IIS (without touching wwwroot)
-        shell: cmd
+        shell: cmd.exe
         run: |
           set source=%cd%\publish\*
           set dest=C:\Users\Dhiaa\Desktop\New folder (4)\ware
