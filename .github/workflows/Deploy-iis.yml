@@ -2,27 +2,25 @@ name: Deploy to IIS
 
 on:
   push:
-    branches: [ "master" ]   # غيّرها لـ "main" لو ده الفرع الافتراضي عندك
+    branches: [ "master" ]   # غيّرها لـ "main" لو الفرع الافتراضي main
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, Windows, X64]   # مهم جداً: لازم تستخدم نفس الـ labels اللي ظهرت في صفحة GitHub
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Publish .NET app
-        shell: bash
+        shell: powershell
         run: dotnet publish -c Release -o publish
 
       - name: Deploy to IIS (without touching wwwroot)
-        shell: bash
+        shell: powershell
         run: |
-          set source=%cd%\publish\*
-          set dest=C:\Users\Dhiaa\Desktop\New folder (4)\ware
+          $source = "$(Get-Location)\publish\*"
+          $dest   = "C:\Users\Dhiaa\Desktop\New folder (4)\ware"
 
-          robocopy %source% %dest% /MIR /XD wwwroot
-
+          robocopy $source $dest /MIR /XD wwwroot
           iisreset
-
