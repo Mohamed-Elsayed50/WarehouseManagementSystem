@@ -1,0 +1,27 @@
+name: Deploy to IIS
+
+on:
+  push:
+    branches: [ "main" ]   # يشتغل على كل push للـ main
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted   # هنا بنستخدم السيرفر بتاعك
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Publish .NET app
+        run: dotnet publish -c Release -o publish
+
+      - name: Deploy to IIS (without touching wwwroot)
+        run: |
+          $source = "$(Get-Location)\publish\*"
+          $dest   = "C:\Users\Dhiaa\Desktop\New folder (4)\ware"
+
+      
+          robocopy $source $dest /MIR /XD wwwroot
+
+        
+          iisreset
